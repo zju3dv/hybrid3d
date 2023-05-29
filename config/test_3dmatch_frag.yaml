@@ -1,0 +1,124 @@
+---
+name: hf
+n_gpu: 2
+arch:
+  # type: H3DNet_v7
+  # type: H3DNet_v8
+  # type: H3DNetCoordSkip
+  type: H3DNetCoordVote
+  # type: H2DFullHeatmap
+  # type: H3DCoordRGB
+  # type: H3DMultiTower
+  args: {}
+  partial_load_state_dict: False
+  vote_model: VoteFusionModuleV3
+  # vote_model: VoteFusionModuleDirectAssign
+  # vote_model: VoteFusionModuleFCGFOnly
+  vote_pcd_conv_model: fcgf
+  # vote_pcd_conv_model: fcgf_official
+  # vote_pcd_conv_model: D3Feat
+  # vote_out_dim: 32
+  vote_out_dim: 64
+  # balance_weight: 0.5
+  # vote_out_dim: 32
+  fuse_anchor: 5120
+  fuse_anchor_extra: 1024 # for rgb
+  fix_pcd_conv_weight: True
+  balance_weight: 0.7
+  neighbor_radius: 0.075 # 2.5 * 0.03
+  neighbor_max_sample: 48
+  # score_type: D3Feat
+  score_type: header
+  multi_fuse_layer: False
+  extra_feature_header: False
+  score_nms_radius: 0.03
+
+data_loader:
+  type: X3DMatchFragmentDataLoader
+  # type: RedwoodLidarFragDataLoader
+  args:
+    data_dir: data/3dmatch/
+    # data_dir: /mnt/ssd_disk/redwood_lidar_3dmatch_format/
+    batch_size: 1
+    shuffle: true
+    validation_split: 0.1
+    num_workers: 4
+  dataset_subset_ratio: 1.0
+  pcd_voxel_size: 0.02
+  # max_K_downsample_voxel_size: 0.03
+  # max_K_div: 200
+  max_K_downsample_voxel_size: 0.2
+  max_K_div: 4
+  min_K: 0
+  corner_size: 4
+  mode: single
+  # only project visible points (which satisfy cluster radius) to its fragment
+  divide_heatmap: False
+  depth_trunc: 20.0
+  frame_skip_step: 3
+  covisible_mask: False
+  random_swap_pair: False
+  read_frame_data: True
+  read_pretrained_2d_candidates: False
+  # pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1013_125824_H3DMultiTower_X3DMatchFragmentDataLoader_multi_tower_pretrained_fcgf_epoch99_gen_2d_eval_6d91f2
+  pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1024_013819_H3DMultiTower_X3DMatchFragmentDataLoader_fcgf_voxel_0.02_epoch99_all_train_test_a3bb85
+  # rgb only for ablation
+  # pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1031_125554_H3DCoordRGB_X3DMatchFragmentDataLoader_coord_rgb_only_epoch99_full_24eb0c
+  # no multi tower for ablation
+  # pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1101_003944_H3DMultiTower_X3DMatchFragmentDataLoader__coord_only_2d_fuse_no_multi_tower_cont_epoch99_full_29bfab
+
+optimizer:
+  type: Adam
+  args:
+    lr: 0.0001
+    weight_decay: 1.0e-4
+    amsgrad: true
+
+loss:
+  type: PlainLoss
+  args: {}
+  depth_pred_loss_weight: 1.0
+  heatmap_loss_weight: 10.0
+  heatmap_negative_weight: 0.1
+  chamfer_loss_weight: 0.0
+  descriptor_loss_weight: 1.0
+
+metrics: []
+
+lr_scheduler:
+  type: ExponentialLR
+  args:
+    # step_size: 10
+    # gamma: 0.1
+    gamma: 0.9
+
+trainer:
+  epochs: 100
+  save_dir: saved/
+  save_period: 3
+  verbosity: 2
+  monitor: min val_loss
+  # early_stop: 10
+  tensorboard: true
+  log_step: 100
+  frame_batch_size: 2
+  training_frame_size: 8
+  subset_ratio: 1.0 # for training
+  clustering:
+    method: weighted_clustering
+    # method: mean_clustering
+    depth_trunc: 6.0
+    cluster_radius: 0.1
+    nms_space: 0.15
+    min_weight_thresh: 0
+    max_iteration: 10
+    min_pt_each_cluster: 5
+  point_lifting:
+    nms_dist: 2
+    conf_thresh: 0.2
+
+
+visualization:
+  heatmap:
+    nms_dist: 2
+    conf_thresh: 0.2

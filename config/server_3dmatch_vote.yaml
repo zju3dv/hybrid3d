@@ -1,0 +1,115 @@
+---
+name: hf
+n_gpu: 2
+arch:
+  type: H3DNetCoordVote
+  args: {}
+  partial_load_state_dict: True
+  vote_model: CandidateVoteModule_V3
+
+data_loader:
+  type: X3DMatchFragmentDataLoader
+  args:
+    data_dir: data/3dmatch/
+    batch_size: 1
+    shuffle: true
+    validation_split: 0.1
+    num_workers: 4
+  dataset_subset_ratio: 1.0
+  # max_K_downsample_voxel_size: 0.03
+  # max_K_div: 200
+  max_K_downsample_voxel_size: 0.2
+  max_K_div: 4
+  # max_K_div: 100
+  min_K: 0
+  corner_size: 4
+  mode: pair
+  # only project visible points (which satisfy cluster radius) to its fragment
+  divide_heatmap: False
+  depth_trunc: 20.0
+  frame_skip_step: 3
+  covisible_mask: True
+  random_swap_pair: True
+
+optimizer:
+  type: Adam
+  args:
+    lr: 0.0001
+    weight_decay: 1.0e-4
+    amsgrad: true
+
+loss:
+  type: PlainLoss
+  args: {}
+  depth_pred_loss_weight: 1.0
+  heatmap_loss_weight: 10.0
+  heatmap_negative_weight: 0.05
+  heatmap_consistency_loss: 0.1
+  coord_projection_loss: 0.1
+  chamfer_loss_weight: 0.0
+  descriptor_loss_weight: 5.0
+  # 3D votes
+  vote_chamfer_loss_weight: 1.0
+  vote_chamfer_max_dist_clip: 0.15
+  vote_chamfer_min_dist_clip: 0.00
+  vote_regularization_weight: 1.0
+  vote_reg_radius: 0.3
+  vote_score_loss_weight: 1.0
+  # vote_score_loss_weight: 0.0
+  vote_desc_loss_weight: 1.0
+  vote_desc_positive_radius: 0.075
+  vote_desc_negative_radius: 0.25
+  # vote_desc_loss_type: triplet
+  vote_desc_loss_type: contrastive
+  vote_desc_triplet_margin: 1.0
+  vote_desc_pos_margin: 0.1
+  vote_desc_neg_margin: 1.4
+  vote_aggregation_loss_weight: 1.0
+  vote_aggr_topk: 5
+  vote_aggr_topk_clip: 0.05
+
+metrics: []
+
+lr_scheduler:
+  type: ExponentialLR
+  args:
+    # step_size: 10
+    # gamma: 0.1
+    gamma: 0.9
+
+trainer:
+  type: TrainerCoordVote
+  epochs: 100
+  save_dir: saved/
+  save_period: 3
+  verbosity: 2
+  monitor: min val_loss
+  # early_stop: 10
+  tensorboard: true
+  log_step: 100
+  frame_batch_size: 4
+  training_frame_size: 16
+  subset_ratio: 301 # for each training epoch
+  grad_clip_norm: 100
+  voting_train_start: 3
+  voting_use_start: 99999
+  augment_vote_input: True
+  skip_2d_training: True
+  clustering:
+    method: weighted_clustering
+    # method: mean_clustering
+    depth_trunc: 6.0
+    cluster_radius: 0.05
+    nms_space: 0.15
+    min_weight_thresh: 0
+    max_iteration: 10
+    min_pt_each_cluster: 5
+  point_lifting:
+    nms_dist: 2
+    conf_thresh: 0.2
+
+
+visualization:
+  heatmap:
+    nms_dist: 2
+    conf_thresh: 0.2

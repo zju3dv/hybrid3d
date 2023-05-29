@@ -1,0 +1,174 @@
+---
+name: hf
+n_gpu: 2
+arch:
+  type: H3DNetCoordVote
+  # type: H3DCoordRGB
+  args: {}
+  partial_load_state_dict: True
+  vote_model: VoteFusionModuleV3
+  # vote_model: VoteFusionModuleDirectAssign
+  # vote_model: VoteFusionModuleFCGFOnly
+  vote_pcd_conv_model: fcgf
+  # vote_pcd_conv_model: fcgf_official
+  # vote_pcd_conv_model: D3Feat
+  vote_out_dim: 64
+  # vote_out_dim: 32
+  fuse_anchor: 5120
+  fuse_anchor_extra: 1024 # for rgb
+  fix_pcd_conv_weight: True
+  balance_weight: 0.7
+  # balance_weight: 0.9
+  neighbor_radius: 0.075 # 2.5 * 0.03
+  neighbor_max_sample: 48
+  # score_type: D3Feat
+  score_type: header
+  multi_fuse_layer: False
+  # multi_fuse_layer: True
+  extra_feature_header: False
+
+data_loader:
+  type: X3DMatchFragmentDataLoader
+  args:
+    data_dir: data/3dmatch/
+    batch_size: 1
+    shuffle: true
+    validation_split: 0.1
+    num_workers: 4
+  dataset_subset_ratio: 1.0
+  pcd_voxel_size: 0.02
+  # max_K_downsample_voxel_size: 0.03
+  # max_K_div: 200
+  max_K_downsample_voxel_size: 0.2
+  max_K_div: 4
+  # max_K_div: 100
+  min_K: 0
+  corner_size: 4
+  mode: pair
+  # only project visible points (which satisfy cluster radius) to its fragment
+  divide_heatmap: False
+  depth_trunc: 20.0
+  frame_skip_step: 3
+  covisible_mask: False
+  random_swap_pair: True
+  read_frame_data: False
+  read_pretrained_2d_candidates: True
+  pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1024_013819_H3DMultiTower_X3DMatchFragmentDataLoader_fcgf_voxel_0.02_epoch99_all_train_test_a3bb85
+  # # rgb only for ablation
+  # pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1031_125554_H3DCoordRGB_X3DMatchFragmentDataLoader_coord_rgb_only_epoch99_full_24eb0c
+  # # no multi tower for ablation
+  # pretrained_2d_candidates_path: data/3dmatch/pretrained_2d_candidates/log_hf_1101_003944_H3DMultiTower_X3DMatchFragmentDataLoader__coord_only_2d_fuse_no_multi_tower_cont_epoch99_full_29bfab
+
+optimizer:
+  type: Adam
+  args:
+    lr: 0.001
+    weight_decay: 1.0e-4
+    amsgrad: true
+
+loss:
+  type: PlainLoss
+  args: {}
+  depth_pred_loss_weight: 1.0
+  heatmap_loss_weight: 10.0
+  heatmap_negative_weight: 0.05
+  heatmap_consistency_loss: 0.1
+  coord_projection_loss: 0.1
+  chamfer_loss_weight: 0.0
+  descriptor_loss_weight: 5.0
+  # 3D votes
+  # vote_chamfer_loss_weight: 1.0
+  # vote_chamfer_max_dist_clip: 0.15
+  # vote_chamfer_min_dist_clip: 0.00
+  # vote_regularization_weight: 1.0
+  # vote_reg_radius: 0.3
+  vote_score_loss_weight: 1.0
+  # vote_score_loss_type: D3Feat
+  # vote_score_loss_type: pndiff_mean
+  # vote_score_loss_type: pndiff_rank
+  # vote_score_loss_type: pndiff_rank_margin
+  vote_score_loss_type: avg_neg_mean
+  # vote_score_loss_type: avg_neg_rank
+  # vote_score_loss_weight: 0.0
+  symmetric_negative_pair: True
+  # vote_desc_anchor_num: 64
+  # vote_desc_anchor_num: 128
+  vote_desc_anchor_num: 256
+  # vote_desc_anchor_num: 256
+  # vote_desc_neg_num: 128
+  vote_desc_neg_num: 256
+  # vote_desc_neg_num: 1024
+  # vote_desc_neg_num: 2048
+  # vote_desc_neg_num: 4096
+  vote_desc_loss_weight: 1.0
+  # vote_desc_positive_radius: 0.075
+  vote_desc_positive_radius: 0.05
+  vote_desc_negative_safe_radius: 0.25
+  # vote_desc_loss_type: triplet
+  vote_desc_loss_type: contrastive
+  vote_desc_triplet_margin: 1.0
+  vote_desc_pos_margin: 0.1
+  vote_desc_neg_margin: 1.4
+  # score peakness loss
+  vote_score_peakness_loss_weight: 0.05
+  vote_score_peakness_loss_radius: 0.075
+  # vote_score_peakness_loss_radius: 0.1
+  vote_score_peakness_loss_neighbor_max_sample: 64
+  vote_score_peakness_loss_margin: 0.3
+  # vote score consistency loss
+  vote_score_consistency_loss_weight: 1.0
+  # vote_score_consistency_loss_weight:
+  # vote_aggregation_loss_weight: 1.0
+  # vote_aggr_topk: 5
+  # vote_aggr_topk_clip: 0.05
+
+metrics: []
+
+lr_scheduler:
+  type: ExponentialLR
+  args:
+    # step_size: 10
+    # gamma: 0.1
+    gamma: 0.9
+
+trainer:
+  type: TrainerFusion
+  epochs: 100
+  save_dir: saved/
+  save_period: 3
+  verbosity: 2
+  monitor: min val_loss
+  # early_stop: 10
+  tensorboard: true
+  log_step: 20
+  frame_batch_size: 4
+  training_frame_size: 16
+  # subset_ratio: 301 # for each training epoch
+  subset_ratio: 601 # for each training epoch
+  # subset_ratio: 1001 # for each training epoch
+  grad_clip_norm: 100
+  voting_train_start: 0
+  voting_use_start: 99999
+  augment_vote_input: True
+  skip_2d_training: True
+  more_rgb_anchor: True
+  # more_rgb_anchor: False
+  max_rgb_anchor_ratio: 0.5
+  clustering:
+    method: weighted_clustering
+    # method: mean_clustering
+    depth_trunc: 6.0
+    cluster_radius: 0.05
+    nms_space: 0.15
+    min_weight_thresh: 0
+    max_iteration: 10
+    min_pt_each_cluster: 5
+  point_lifting:
+    nms_dist: 2
+    conf_thresh: 0.2
+
+
+visualization:
+  heatmap:
+    nms_dist: 2
+    conf_thresh: 0.2
